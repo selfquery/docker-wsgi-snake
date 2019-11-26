@@ -1,0 +1,53 @@
+###########
+# BUILDER #
+###########
+
+# pull official base image
+FROM python:3.7 as builder
+
+# set work directory
+WORKDIR /usr/src/app
+
+# set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# upgrade environment
+RUN pip install --upgrade pip
+COPY . /usr/src/app/
+
+# install dependencies
+COPY ./requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.txt
+
+#########
+# FINAL #
+#########
+
+# pull official base image
+FROM python:3.7
+
+# create the app user
+RUN addgroup --system app && adduser --ingroup app --system app
+
+# install dependencies
+COPY --from=builder /usr/src/app/wheels /wheels
+COPY --from=builder /usr/src/app/requirements.txt .
+RUN pip install --upgrade pip
+RUN pip install --no-cache /wheels/*
+
+# copy project
+ADD . /app
+WORKDIR /app/src
+
+# chown all the files to the app user
+RUN chown -R app:app /app
+
+# change to the app user
+USER app
+
+# expose port
+EXPOSE 8080
+
+# start service
+CMD ["gunicorn", "--workers=2", "--bind=0.0.0.0:8080", "--log-level=debug", "manage:application"]

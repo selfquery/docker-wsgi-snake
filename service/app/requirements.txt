@@ -1,0 +1,6 @@
+flask
+flask_restplus
+pymongo
+redis
+gunicorn
+flask_graphite

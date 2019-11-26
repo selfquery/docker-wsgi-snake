@@ -1,0 +1,95 @@
+version: "3"
+services:
+
+    cache:
+        image: redis
+        container_name: 'cache'
+        # restart: "always"
+        networks:
+        - micro-net
+        expose:
+        - 6379
+        logging:
+          driver: "none"
+    
+    database:
+        image: mongo
+        container_name: 'database'
+        environment:
+        - MONGO_INITDB_ROOT_USERNAME=$MONGO_USERNAME
+        - MONGO_INITDB_ROOT_PASSWORD=$MONGO_PASSWORD
+        # restart: "always"
+        networks:
+        - micro-net
+        volumes:
+        - database:/data/db
+        expose:
+        - 27019
+        logging:
+          driver: "none"
+
+    app:
+        build: ./service/app
+        container_name: "app"
+        environment:
+        - REDIS_HOST=$REDIS_HOST
+        - REDIS_PORT=$REDIS_PORT
+        - MONGO_USERNAME=$MONGO_USERNAME
+        - MONGO_PASSWORD=$MONGO_PASSWORD
+        - MONGO_URI=$MONGO_URI
+        - JWT_SECRET=$JWT_SECRET
+        # restart: "always"
+        expose:
+        - 8080
+        networks:
+        - micro-net
+        depends_on:
+        - cache
+        - database
+        - graphite
+        # volumes:
+        # - output:/app/output
+
+    nginx:
+        build: ./service/nginx
+        container_name: "nginx"
+        # restart: "always"
+        ports:
+        - 8080:80
+        networks:
+        - micro-net
+        depends_on:
+        - app
+    
+    graphite:
+        image: graphiteapp/graphite-statsd
+        container_name: "graphite"
+        # restart: always
+        expose:
+        - 8080
+        networks:
+          - micro-net
+        logging:
+          driver: "none"
+    
+    grafana:
+        image: grafana/grafana:latest
+        container_name: "grafana"
+        environment:
+        - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/metrics/
+        expose:
+        - 3000
+        networks:
+        - micro-net
+        depends_on:
+        - app
+        - graphite
+        logging:
+          driver: "none"
+
+volumes:
+    database:
+    dashboard:
+    # output:
+networks: 
+    micro-net:
